@@ -657,6 +657,21 @@ app.get("/api/admin/overview", async (req, res) => {
 });
 
 
+// Get all startups
+app.get("/api/admin/startups", async (req, res) => {
+  try {
+    const startups = await startupCollection
+      .find()
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    res.send(startups);
+  } catch (error) {
+    res.status(500).send({ message: error.message });
+  }
+});
+
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
