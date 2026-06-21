@@ -384,6 +384,52 @@ app.patch("/api/founder/applications/:id/status", async (req, res) => {
 });
 
 
+// =============================
+// Collaborator profile
+// =============================
+app.get("/api/collaborator/profile", async (req, res) => {
+  try {
+    const email = req.query.email;
+    if (!email) return res.status(400).send({ message: "Email is required" });
+
+    const profile = await collaboratorProfileCollection.findOne({ email });
+    if (!profile) return res.status(404).send({ message: "Profile not found" });
+
+    res.send({ profile });
+  } catch (error) {
+    res.status(500).send({ message: error.message });
+  }
+});
+
+app.post("/api/collaborator/profile", async (req, res) => {
+  try {
+    const { email, name, image, skills, bio } = req.body;
+    if (!email || !name || !skills) {
+      return res.status(400).send({ message: "Email, name, and skills are required" });
+    }
+
+    const update = {
+      email,
+      name,
+      image: image || "",
+      skills,
+      bio: bio || "",
+      updatedAt: new Date(),
+    };
+
+    const result = await collaboratorProfileCollection.findOneAndUpdate(
+      { email },
+      { $set: update, $setOnInsert: { createdAt: new Date() } },
+      { upsert: true, returnDocument: "after" }
+    );
+
+    res.send({ profile: result.value });
+  } catch (error) {
+    res.status(500).send({ message: error.message });
+  }
+});
+
+
 
 
     // Send a ping to confirm a successful connection
