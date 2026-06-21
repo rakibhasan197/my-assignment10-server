@@ -431,6 +431,80 @@ app.post("/api/collaborator/profile", async (req, res) => {
 
 
 
+// =============================
+// Collaborator applications
+// =============================
+app.get("/api/applications", async (req, res) => {
+  try {
+    const email = req.query.email;
+    if (!email) return res.status(400).send({ message: "Email is required" });
+
+    const applications = await applicationCollection
+      .find({ applicant_email: email })
+      .sort({ applied_at: -1 })
+      .toArray();
+
+    res.send({ applications });
+  } catch (error) {
+    res.status(500).send({ message: error.message });
+  }
+});
+
+app.post("/api/applications", async (req, res) => {
+  try {
+    const {
+      opportunity_id,
+      applicant_email,
+      portfolio_link,
+      motivation_message,
+    } = req.body;
+
+    if (
+      !opportunity_id ||
+      !applicant_email ||
+      !portfolio_link ||
+      !motivation_message
+    ) {
+      return res.status(400).send({ message: "All fields are required" });
+    }
+
+    const opportunity = await opportunityCollection.findOne({
+      _id: makeObjectId(opportunity_id),
+    });
+
+    if (!opportunity) {
+      return res.status(404).send({ message: "Opportunity not found" });
+    }
+
+    const alreadyApplied = await applicationCollection.findOne({
+      opportunity_id,
+      applicant_email,
+    });
+
+    if (alreadyApplied) {
+      return res.status(400).send({ message: "You already applied" });
+    }
+
+    const newApplication = {
+      opportunity_id,
+      opportunity_name: opportunity.role_title,
+      startup_name: opportunity.startup_name,
+      applicant_email,
+      portfolio_link,
+      motivation_message,
+      status: "Pending",
+      applied_at: new Date(),
+      createdAt: new Date(),
+    };
+
+    const result = await applicationCollection.insertOne(newApplication);
+    res.send({ ...newApplication, _id: result.insertedId });
+  } catch (error) {
+    res.status(500).send({ message: error.message });
+  }
+});
+
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
