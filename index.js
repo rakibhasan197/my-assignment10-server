@@ -595,6 +595,46 @@ app.post("/api/payments/checkout", async (req, res) => {
 });
 
 
+app.post("/api/payments/confirm", async (req, res) => {
+  try {
+    const { session_id } = req.body;
+    if (!session_id) return res.status(400).send({ message: "session_id is required" });
+
+    const session = await stripe.checkout.sessions.retrieve(session_id);
+    if (session.payment_status !== "paid") {
+      return res.status(400).send({ message: "Payment not completed" });
+    }
+
+    const payment = await paymentCollection.findOneAndUpdate(
+      { stripe_session_id: session_id },
+      {
+        $set: {
+          payment_status: "Paid",
+          paid_at: new Date(),
+          stripe_payment_intent_id: session.payment_intent,
+          transaction_id: session.payment_intent,
+        },
+      },
+      { returnDocument: "after" }
+    );
+
+    if (!payment.value) {
+      return res.status(404).send({ message: "Payment record not found" });
+    }
+
+    res.send({
+      transaction_id: payment.value.transaction_id,
+      package_name: payment.value.package_name,
+      amount: payment.value.amount,
+      opportunities_allowed: payment.value.opportunities_allowed,
+      paid_at: payment.value.paid_at,
+    });
+  } catch (error) {
+    res.status(500).send({ message: error.message });
+  }
+});
+
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
