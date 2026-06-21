@@ -635,6 +635,28 @@ app.post("/api/payments/confirm", async (req, res) => {
 });
 
 
+// Admin Dashboard Overview
+app.get("/api/admin/overview", async (req, res) => {
+  try {
+    const totalStartups = await startupCollection.countDocuments();
+    const totalOpportunities = await opportunityCollection.countDocuments();
+    const totalApplications = await applicationCollection.countDocuments();
+    const totalPayments = await paymentCollection.countDocuments({
+      payment_status: "Paid",
+    });
+
+    res.send({
+      totalStartups,
+      totalOpportunities,
+      totalApplications,
+      totalPayments,
+    });
+  } catch (error) {
+    res.status(500).send({ message: error.message });
+  }
+});
+
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
