@@ -506,6 +506,96 @@ app.post("/api/applications", async (req, res) => {
 
 
 
+// =============================
+// Payment status and checkout
+// =============================
+app.get("/api/payments/info", async (req, res) => {
+  try {
+    const email = req.query.email;
+    if (!email) return res.status(400).send({ message: "Email is required" });
+
+    const latestPayment = await paymentCollection
+      .find({ user_email: email, payment_status: "Paid" })
+      .sort({ paid_at: -1 })
+      .limit(1)
+      .toArray();
+
+    const payment = latestPayment[0] || null;
+    const opportunitiesUsed = await opportunityCollection.countDocuments({
+      founder_email: email,
+    });
+
+    res.send({
+      current_package: payment?.package_name || null,
+      opportunities_posted: opportunitiesUsed,
+      opportunities_allowed: payment?.opportunities_allowed || 3,
+      upgrade_required:
+        opportunitiesUsed >= (payment?.opportunities_allowed || 3),
+    });
+  } catch (error) {
+    res.status(500).send({ message: error.message });
+  }
+});
+
+app.post("/api/payments/checkout", async (req, res) => {
+  try {
+    const { email, package_id } = req.body;
+    if (!email || !package_id) {
+      return res.status(400).send({ message: "Email and package_id are required" });
+    }
+
+    const packages = {
+      basic: { price: 2900, name: "Basic", opportunities: 3 },
+      pro: { price: 7900, name: "Professional", opportunities: 15 },
+      enterprise: { price: 19900, name: "Enterprise", opportunities: 999 },
+    };
+
+    const pkg = packages[package_id];
+    if (!pkg) return res.status(400).send({ message: "Invalid package_id" });
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      mode: "payment",
+      line_items: [
+        {
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: `${pkg.name} StartupForge Package`,
+              description: `Post up to ${pkg.opportunities} opportunities`,
+            },
+            unit_amount: pkg.price,
+          },
+          quantity: 1,
+        },
+      ],
+      success_url: `${process.env.CLIENT_URL || "http://localhost:3000"}/payments/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.CLIENT_URL || "http://localhost:3000"}/dashboard/collaborator`,
+      customer_email: email,
+      metadata: {
+        package_id,
+      },
+    });
+
+    await paymentCollection.insertOne({
+      user_email: email,
+      package_id,
+      package_name: pkg.name,
+      amount: pkg.price / 100,
+      payment_status: "Pending",
+      stripe_session_id: session.id,
+      opportunities_allowed: pkg.opportunities,
+      createdAt: new Date(),
+    });
+
+    res.send({ checkout_url: session.url, session_id: session.id });
+  } catch (error) {
+    res.status(500).send({ message: error.message });
+  }
+});
+
+
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
