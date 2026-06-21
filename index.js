@@ -194,6 +194,128 @@ app.post("/api/founder/startup", async (req, res) => {
 // =============================
 
 
+app.patch("/api/founder/startup/:id", async (req, res) => {
+  try {
+    const id = makeObjectId(req.params.id);
+    if (!id) return res.status(400).send({ message: "Invalid startup id" });
+
+    const updateData = req.body;
+    delete updateData._id;
+
+    const result = await startupCollection.updateOne(
+      { _id: id },
+      {
+        $set: {
+          ...updateData,
+          updatedAt: new Date(),
+        },
+      }
+    );
+
+    res.send(result);
+  } catch (error) {
+    res.status(500).send({ message: error.message });
+  }
+});
+
+app.delete("/api/founder/startup/:id", async (req, res) => {
+  try {
+    const id = makeObjectId(req.params.id);
+    if (!id) return res.status(400).send({ message: "Invalid startup id" });
+
+    const result = await startupCollection.deleteOne({ _id: id });
+    res.send(result);
+  } catch (error) {
+    res.status(500).send({ message: error.message });
+  }
+});
+
+// =============================
+// Add / Manage Opportunities
+// =============================
+app.get("/api/founder/opportunities", async (req, res) => {
+  try {
+    const email = req.query.email;
+    if (!email) return res.status(400).send({ message: "Founder email is required" });
+
+    const result = await opportunityCollection
+      .find({ founder_email: email })
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    res.send(result);
+  } catch (error) {
+    res.status(500).send({ message: error.message });
+  }
+});
+
+app.post("/api/founder/opportunities", async (req, res) => {
+  try {
+    const opportunity = req.body;
+
+    if (!opportunity.role_title || !opportunity.required_skills || !opportunity.work_type || !opportunity.commitment_level || !opportunity.deadline || !opportunity.founder_email) {
+      return res.status(400).send({ message: "Missing required opportunity fields" });
+    }
+
+    const totalPosted = await opportunityCollection.countDocuments({
+      founder_email: opportunity.founder_email,
+    });
+
+    const hasPremium = await paymentCollection.findOne({
+      user_email: opportunity.founder_email,
+      payment_status: "Paid",
+    });
+
+    if (totalPosted >= 3 && !hasPremium) {
+      return res.status(403).send({
+        message: "Premium package required to post more than 3 opportunities",
+      });
+    }
+
+    const newOpportunity = {
+      startup_id: opportunity.startup_id,
+      startup_name: opportunity.startup_name,
+      founder_email: opportunity.founder_email,
+      role_title: opportunity.role_title,
+      required_skills: opportunity.required_skills,
+      work_type: opportunity.work_type,
+      commitment_level: opportunity.commitment_level,
+      deadline: opportunity.deadline,
+      image: opportunity.image || "",
+      createdAt: new Date(),
+    };
+
+    const result = await opportunityCollection.insertOne(newOpportunity);
+    res.send(result);
+  } catch (error) {
+    res.status(500).send({ message: error.message });
+  }
+});
+
+app.patch("/api/founder/opportunities/:id", async (req, res) => {
+  try {
+    const id = makeObjectId(req.params.id);
+    if (!id) return res.status(400).send({ message: "Invalid opportunity id" });
+
+    const updateData = req.body;
+    delete updateData._id;
+
+    const result = await opportunityCollection.updateOne(
+      { _id: id },
+      {
+        $set: {
+          ...updateData,
+          updatedAt: new Date(),
+        },
+      }
+    );
+
+    res.send(result);
+  } catch (error) {
+    res.status(500).send({ message: error.message });
+  }
+});
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
