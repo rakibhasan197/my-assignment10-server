@@ -691,6 +691,34 @@ app.patch("/api/admin/startups/:id/approve", async (req, res) => {
 });
 
 
+app.get("/api/admin/opportunities", async (req, res) => {
+  try {
+    const opportunities = await opportunityCollection
+      .find()
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    res.send(opportunities);
+  } catch (error) {
+    res.status(500).send({ message: error.message });
+  }
+});
+
+
+app.delete("/api/admin/opportunities/:id", async (req, res) => {
+  try {
+    const id = new ObjectId(req.params.id);
+
+    const result = await opportunityCollection.deleteOne({
+      _id: id,
+    });
+
+    res.send(result);
+  } catch (error) {
+    res.status(500).send({ message: error.message });
+  }
+});
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
