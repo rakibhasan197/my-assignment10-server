@@ -671,6 +671,25 @@ app.get("/api/admin/startups", async (req, res) => {
   }
 });
 
+app.patch("/api/admin/startups/:id/approve", async (req, res) => {
+  try {
+    const id = new ObjectId(req.params.id);
+
+    const result = await startupCollection.updateOne(
+      { _id: id },
+      {
+        $set: {
+          status: "Approved",
+        },
+      }
+    );
+
+    res.send(result);
+  } catch (error) {
+    res.status(500).send({ message: error.message });
+  }
+});
+
 
 
     // Send a ping to confirm a successful connection
