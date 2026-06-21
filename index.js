@@ -317,6 +317,75 @@ app.patch("/api/founder/opportunities/:id", async (req, res) => {
 });
 
 
+
+app.delete("/api/founder/opportunities/:id", async (req, res) => {
+  try {
+    const id = makeObjectId(req.params.id);
+    if (!id) return res.status(400).send({ message: "Invalid opportunity id" });
+
+    const result = await opportunityCollection.deleteOne({ _id: id });
+    res.send(result);
+  } catch (error) {
+    res.status(500).send({ message: error.message });
+  }
+});
+
+// =============================
+// Applications for Founder
+// =============================
+app.get("/api/founder/applications", async (req, res) => {
+  try {
+    const email = req.query.email;
+    if (!email) return res.status(400).send({ message: "Founder email is required" });
+
+    const opportunities = await opportunityCollection
+      .find({ founder_email: email })
+      .project({ _id: 1, role_title: 1, startup_name: 1 })
+      .toArray();
+
+    const opportunityIds = opportunities.map((op) => op._id.toString());
+
+    const applications = await applicationCollection
+      .find({ opportunity_id: { $in: opportunityIds } })
+      .sort({ applied_at: -1 })
+      .toArray();
+
+    res.send(applications);
+  } catch (error) {
+    res.status(500).send({ message: error.message });
+  }
+});
+
+app.patch("/api/founder/applications/:id/status", async (req, res) => {
+  try {
+    const id = makeObjectId(req.params.id);
+    if (!id) return res.status(400).send({ message: "Invalid application id" });
+
+    const { status } = req.body;
+
+    if (!["Accepted", "Rejected", "Pending"].includes(status)) {
+      return res.status(400).send({ message: "Invalid status" });
+    }
+
+    const result = await applicationCollection.updateOne(
+      { _id: id },
+      {
+        $set: {
+          status,
+          updatedAt: new Date(),
+        },
+      }
+    );
+
+    res.send(result);
+  } catch (error) {
+    res.status(500).send({ message: error.message });
+  }
+});
+
+
+
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
