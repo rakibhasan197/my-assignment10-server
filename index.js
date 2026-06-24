@@ -478,6 +478,16 @@ app.get("/api/applications", async (req, res) => {
   }
 });
 
+app.get("/api/applications/user/:email", async (req, res) => {
+  const email = req.params.email;
+
+  const result = await applicationsCollection
+    .find({ applicant_email: email })
+    .toArray();
+
+  res.send(result);
+});
+
 app.post("/api/applications", async (req, res) => {
   try {
     const {
@@ -565,7 +575,7 @@ app.get("/api/payments/info", async (req, res) => {
       founder_email: email,
     });
 
-    
+
 
     res.send({
       current_package: payment?.package_name || null,
