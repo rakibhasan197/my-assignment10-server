@@ -109,7 +109,7 @@ app.get("/api/opportunities/:id", async (req, res) => {
   const { id } = req.params;
 
   const opportunity = await opportunityCollection.findOne({
-    _id: new ObjectId(id),
+  _id: new ObjectId(id),
   });
 
   res.send(opportunity);
