@@ -10,7 +10,7 @@ if (!stripeSecretKey) {
   throw new Error('STRIPE_SECRET_KEY environment variable is required');
 }
 const stripe = require("stripe")(stripeSecretKey);
-const PORT = process.env.PORT || 8000;
+const PORT = process.env.PORT;
 
 
 app.use(cors())
@@ -39,6 +39,10 @@ async function run() {
     const applicationCollection = database.collection("applications");
     const paymentCollection = database.collection("payments");
     const collaboratorProfileCollection = database.collection("collaborator_profiles");
+    const usersCollection = database.collection("users");
+
+
+
     
 
     app.get('/api/startup', async (req, res) => {
@@ -66,12 +70,25 @@ async function run() {
 
 app.get("/api/opportunities", async (req, res) => {
   try {
-    const result = await opportunityCollection
+    const { page = 1, limit = 5 } = req.query;
+
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const total = await opportunityCollection.countDocuments();
+
+    const opportunities = await opportunityCollection
       .find()
       .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit))
       .toArray();
 
-    res.send(result);
+    res.send({
+      opportunities,
+      total,
+      currentPage: Number(page),
+      totalPages: Math.ceil(total / Number(limit)),
+    });
   } catch (error) {
     res.status(500).send({ message: error.message });
   }
@@ -85,6 +102,17 @@ app.get("/api/featured-opportunities", async (req, res) => {
     .toArray();
 
   res.send(result);
+});
+
+
+app.get("/api/opportunities/:id", async (req, res) => {
+  const { id } = req.params;
+
+  const opportunity = await opportunityCollection.findOne({
+    _id: new ObjectId(id),
+  });
+
+  res.send(opportunity);
 });
 
 
@@ -638,33 +666,70 @@ app.post("/api/payments/confirm", async (req, res) => {
 // Admin Dashboard Overview
 app.get("/api/admin/overview", async (req, res) => {
   try {
+    const totalUsers = await usersCollection.countDocuments();
     const totalStartups = await startupCollection.countDocuments();
     const totalOpportunities = await opportunityCollection.countDocuments();
-    const totalApplications = await applicationCollection.countDocuments();
-    const totalPayments = await paymentCollection.countDocuments({
-      payment_status: "Paid",
-    });
+
+    const payments = await paymentCollection.find({ payment_status: "Paid" }).toArray();
+
+    const totalRevenue = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
     res.send({
+      totalUsers,
       totalStartups,
       totalOpportunities,
-      totalApplications,
-      totalPayments,
+      totalRevenue,
     });
   } catch (error) {
     res.status(500).send({ message: error.message });
   }
 });
 
-
 // Get all startups
+app.get("/api/admin/users", async (req, res) => {
+  try {
+    const users = await usersCollection.find().toArray();
+    res.send(users);
+  } catch (error) {
+    res.status(500).send({ message: error.message });
+  }
+});
+
+app.patch("/api/admin/users/:id/block", async (req, res) => {
+  try {
+    const id = new ObjectId(req.params.id);
+
+    const result = await usersCollection.updateOne(
+      { _id: id },
+      { $set: { isBlocked: true } }
+    );
+
+    res.send(result);
+  } catch (error) {
+    res.status(500).send({ message: error.message });
+  }
+});
+
+
+app.patch("/api/admin/users/:id/unblock", async (req, res) => {
+  try {
+    const id = new ObjectId(req.params.id);
+
+    const result = await usersCollection.updateOne(
+      { _id: id },
+      { $set: { isBlocked: false } }
+    );
+
+    res.send(result);
+  } catch (error) {
+    res.status(500).send({ message: error.message });
+  }
+});
+
+
 app.get("/api/admin/startups", async (req, res) => {
   try {
-    const startups = await startupCollection
-      .find()
-      .sort({ createdAt: -1 })
-      .toArray();
-
+    const startups = await startupCollection.find().toArray();
     res.send(startups);
   } catch (error) {
     res.status(500).send({ message: error.message });
@@ -677,11 +742,7 @@ app.patch("/api/admin/startups/:id/approve", async (req, res) => {
 
     const result = await startupCollection.updateOne(
       { _id: id },
-      {
-        $set: {
-          status: "Approved",
-        },
-      }
+      { $set: { status: "Approved" } }
     );
 
     res.send(result);
@@ -691,29 +752,27 @@ app.patch("/api/admin/startups/:id/approve", async (req, res) => {
 });
 
 
-app.get("/api/admin/opportunities", async (req, res) => {
+   app.delete("/api/admin/startups/:id", async (req, res) => {
   try {
-    const opportunities = await opportunityCollection
-      .find()
-      .sort({ createdAt: -1 })
-      .toArray();
+    const id = new ObjectId(req.params.id);
 
-    res.send(opportunities);
+    const result = await startupCollection.deleteOne({ _id: id });
+
+    res.send(result);
   } catch (error) {
     res.status(500).send({ message: error.message });
   }
 });
 
 
-app.delete("/api/admin/opportunities/:id", async (req, res) => {
+  app.get("/api/admin/payments", async (req, res) => {
   try {
-    const id = new ObjectId(req.params.id);
+    const payments = await paymentCollection
+      .find()
+      .sort({ paid_at: -1 })
+      .toArray();
 
-    const result = await opportunityCollection.deleteOne({
-      _id: id,
-    });
-
-    res.send(result);
+    res.send(payments);
   } catch (error) {
     res.status(500).send({ message: error.message });
   }
