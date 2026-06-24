@@ -496,6 +496,18 @@ app.post("/api/applications", async (req, res) => {
       return res.status(400).send({ message: "All fields are required" });
     }
 
+    app.post("/api/applications", async (req, res) => {
+  const application = {
+    ...req.body,
+    status: "Pending",
+    createdAt: new Date(),
+  };
+
+  const result = await applicationCollection.insertOne(application);
+
+  res.send(result);
+});
+
     const opportunity = await opportunityCollection.findOne({
       _id: makeObjectId(opportunity_id),
     });
@@ -552,6 +564,8 @@ app.get("/api/payments/info", async (req, res) => {
     const opportunitiesUsed = await opportunityCollection.countDocuments({
       founder_email: email,
     });
+
+    
 
     res.send({
       current_package: payment?.package_name || null,
@@ -615,7 +629,6 @@ app.post("/api/payments/checkout", async (req, res) => {
       opportunities_allowed: pkg.opportunities,
       createdAt: new Date(),
     });
-
     res.send({ checkout_url: session.url, session_id: session.id });
   } catch (error) {
     res.status(500).send({ message: error.message });
