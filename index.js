@@ -330,19 +330,18 @@ app.post("/api/founder/opportunities", async (req, res) => {
       });
     }
 
-  const newOpportunity = {
-  startup_id: opportunity.startup_id,
-  startup_name: opportunity.startup_name,
-  founder_email: opportunity.founder_email,
-  role_title: opportunity.role_title,
-  required_skills: opportunity.required_skills,
-  work_type: opportunity.work_type,
-  industry: opportunity.industry,
-  commitment_level: opportunity.commitment_level,
-  deadline: opportunity.deadline,
-  image: opportunity.image || "",
-  createdAt: new Date(),
-};
+    const newOpportunity = {
+      startup_id: opportunity.startup_id,
+      startup_name: opportunity.startup_name,
+      founder_email: opportunity.founder_email,
+      role_title: opportunity.role_title,
+      required_skills: opportunity.required_skills,
+      work_type: opportunity.work_type,
+      commitment_level: opportunity.commitment_level,
+      deadline: opportunity.deadline,
+      image: opportunity.image || "",
+      createdAt: new Date(),
+    };
 
     const result = await opportunityCollection.insertOne(newOpportunity);
     res.send(result);
