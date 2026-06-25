@@ -70,14 +70,44 @@ async function run() {
 
 app.get("/api/opportunities", async (req, res) => {
   try {
-    const { page = 1, limit = 5 } = req.query;
+    const {
+      page = 1,
+      limit = 5,
+      search = "",
+      workType,
+      industry,
+    } = req.query;
 
     const skip = (Number(page) - 1) * Number(limit);
 
-    const total = await opportunityCollection.countDocuments();
+    const query = {};
+
+    // Search by Role Title + Required Skills
+    if (search) {
+      query.$or = [
+        { role_title: { $regex: search, $options: "i" } },
+        { required_skills: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    // Filter by Work Type
+    if (workType) {
+      query.work_type = {
+        $in: workType.split(","),
+      };
+    }
+
+    // Filter by Industry
+    if (industry) {
+      query.industry = {
+        $in: industry.split(","),
+      };
+    }
+
+    const total = await opportunityCollection.countDocuments(query);
 
     const opportunities = await opportunityCollection
-      .find()
+      .find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(Number(limit))
@@ -300,18 +330,19 @@ app.post("/api/founder/opportunities", async (req, res) => {
       });
     }
 
-    const newOpportunity = {
-      startup_id: opportunity.startup_id,
-      startup_name: opportunity.startup_name,
-      founder_email: opportunity.founder_email,
-      role_title: opportunity.role_title,
-      required_skills: opportunity.required_skills,
-      work_type: opportunity.work_type,
-      commitment_level: opportunity.commitment_level,
-      deadline: opportunity.deadline,
-      image: opportunity.image || "",
-      createdAt: new Date(),
-    };
+  const newOpportunity = {
+  startup_id: opportunity.startup_id,
+  startup_name: opportunity.startup_name,
+  founder_email: opportunity.founder_email,
+  role_title: opportunity.role_title,
+  required_skills: opportunity.required_skills,
+  work_type: opportunity.work_type,
+  industry: opportunity.industry,
+  commitment_level: opportunity.commitment_level,
+  deadline: opportunity.deadline,
+  image: opportunity.image || "",
+  createdAt: new Date(),
+};
 
     const result = await opportunityCollection.insertOne(newOpportunity);
     res.send(result);
@@ -481,7 +512,7 @@ app.get("/api/applications", async (req, res) => {
 app.get("/api/applications/user/:email", async (req, res) => {
   const email = req.params.email;
 
-  const result = await applicationsCollection
+  const result = await applicationCollection
     .find({ applicant_email: email })
     .toArray();
 
